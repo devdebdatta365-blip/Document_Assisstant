@@ -1,55 +1,3 @@
-# from langchain_groq import ChatGroq
-# from langchain_community.document_loaders import PyPDFLoader
-# from langchain_core.prompts import ChatPromptTemplate
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
-
-# #Step 1: Load PDF
-# print("Loading PDF...")
-# loader=PyPDFLoader("sample.pdf")
-# pages=loader.load()
-
-# #Step 2 - Combine all pages into one text
-# pdf_text=""
-# for page in pages[:20]:
-#     pdf_text+=page.page_content
-
-# print(f"PDF loaded! Total pages: {len(pages)}")
-
-# #Step 3 - Setup LLM
-# llm= ChatGroq(model="llama-3.1-8b-instant")
-
-
-# #Step 4 - Create Prompt Template
-
-# prompt= ChatPromptTemplate.from_template("""
-# You are a helpful assistant. Answer the question based on the document content below.
-# Document Content:{document}
-# Question: {question}
-# Answer:                                                         
-#                          """                                                        )
-
-# #Step 5 - Create Chain
-# chain= prompt | llm
-
-# #Step 6 - Chat Loop
-
-# print("\n🤖 Document Assistant Ready!")
-# print("Type 'exit' to quit\n")
-
-# while True:
-#     question=input("You: ")
-
-#     if question.lower()=="exit":
-#         print("Goodbye!")
-#         break
-#     response=chain.invoke({
-#         "document":pdf_text,
-#         "question":question
-#     })
-#     print(f"Assistant: {response.content}\n")
 
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
@@ -86,7 +34,7 @@ embeddings=HuggingFaceEmbeddings(
 print("Embedding model loaded!")
 
 #Step 4 - Load or Create ChromaDB
-if os.path.exists("./chroma__db"):
+if os.path.exists("./chroma_db"):
     #Load existing database
     print("Loading existing ChromaDB...")
     vector_store=Chroma(
