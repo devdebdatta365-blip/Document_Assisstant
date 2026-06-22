@@ -39,7 +39,6 @@ Streamlit UI:
 \`\`\`bash
 streamlit run ui.py
 \`\`\`
-Replace `sample.pdf` with your own document, or extend to file upload (see Roadmap).
 
 ## Example
 **Q:** [paste a real question you tested]
@@ -48,7 +47,7 @@ Sources: Page X, Page Y
 
 ## Roadmap
 - [ ] Multi-document support
-- [ ] File upload instead of hardcoded `sample.pdf`
+- [ ] File upload instead of hardcoded pdf file
 - [ ] Hybrid search (BM25 + dense retrieval)
 - [ ] Reranking
 - [ ] CRAG / Self-RAG
