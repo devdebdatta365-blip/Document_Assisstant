@@ -17,7 +17,11 @@ memory, source citations, and hybrid search.
 - ⚡ Fast inference via Groq (llama-3.1-8b-instant)
 - 💾 Persistent vector store (ChromaDB) — embeddings computed once, reused on restart
 - 🏠 Local embeddings via HuggingFace (all-MiniLM-L6-v2) — zero embedding API cost
+-  🎯 Cross-encoder reranking (ms-marco-TinyBERT-L-2-v2) — two-stage 
+  retrieval for higher precision
 - 📊 Retrieval comparison view (Dense vs Hybrid — see which pages each retrieves)
+
+  
 
 ---
 
@@ -29,6 +33,7 @@ memory, source citations, and hybrid search.
 | Embeddings | HuggingFace sentence-transformers |
 | Vector Store | ChromaDB |
 | Keyword Search | BM25 (rank-bm25) |
+| Reranker | sentence-transformers (ms-marco-TinyBERT-L-2-v2) |
 | UI | Streamlit |
 
 ---
@@ -49,7 +54,7 @@ pip install -r requirements.txt
 3. Set up environment variables
 \```bash
 cp .env.example .env
-# Add your GROQ_API_KEY inside .env
+
 \```
 
 4. Run the app
@@ -76,11 +81,35 @@ BM25 and dense retrieval results:
 | Exact keyword | "What does HTTP 429 mean?" | BM25 / Hybrid |
 | Semantic | "Why do AI models lie?" | Dense / Hybrid |
 | Mixed | "Best DB for local dev?" | Hybrid |
+## 🎯 Two-Stage Retrieval Pipeline
+Query
+│
+├── BM25 (keyword) ──┐
+│                    ├── RRF Merge → 20 candidates
+└── Dense (vector) ──┘
+│
+Cross-Encoder Reranker
+(scores query+chunk together)
+│
+Top 5 chunks → LLM
+**Why two stages?**
+- Stage 1 (Hybrid): optimises for *recall* — don't miss anything relevant
+- Stage 2 (Reranking): optimises for *precision* — put the best ones first
+
+**Real example from this project:**
+
+| Question | Dense pages | Reranked pages | Impact |
+|---|---|---|---|
+| "Why ChromaDB for local, Qdrant for production?" | [1] | [0, 1, 2] | Full answer vs partial |
+| "What does HTTP 429 mean?" | [0] | [0] | Same (simple lookup) |
 
 ---
 
 ## 📸 Screenshot
 <img width="946" height="407" alt="image" src="https://github.com/user-attachments/assets/6a17ae84-89ef-45eb-ba7e-8147a37285a1" />
+Retrieval Comparison<img width="959" height="398" alt="image" src="https://github.com/user-attachments/assets/9cc3a550-fba4-482b-ba84-6140140387ad" />
+Dense retrieval found 1 page. Reranking found all 3 relevant pages, 
+enabling a complete answer.
 
 
 ---
@@ -88,7 +117,7 @@ BM25 and dense retrieval results:
 ## 🗺️ Roadmap
 - [x] Naive RAG pipeline (single document)
 - [x] Hybrid Search (BM25 + Dense + RRF)
-- [ ] Reranking (cross-encoder)
+- [x] Reranking (cross-encoder)
 - [ ] HyDE (Hypothetical Document Embeddings)
 - [ ] CRAG (Corrective RAG with relevance grading)
 - [ ] Self-RAG (self-critique loop)
