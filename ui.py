@@ -139,9 +139,11 @@ else:
                 hybrid_retriever = get_hybrid_retriever(
                     chunks=st.session_state.chunks,
                     vector_store=st.session_state.vector_store,
-                    k=5
+        
+                    k=20, #wide candidate pool for reranking
+                    rerank_top_n=5 #final number sent to LLM
                 )
-                relevant_docs = hybrid_retriever.invoke(question)
+                relevant_docs = hybrid_retriever(question)
 
                 # Build context from hybrid results
                 context = "\n\n".join([
@@ -183,15 +185,14 @@ Context:
                         st.write(f"📄 Page {page}")
 
                 # ── Retrieval comparison log ──
-                with st.expander("🔍 Retrieval Comparison (Dense vs Hybrid)"):
-                    st.write(
-                        "**Dense only retrieved pages:**",
-                        sorted(set(d.metadata['page'] for d in dense_docs))
-                    )
-                    st.write(
-                        "**Hybrid retrieved pages:**",
-                        sorted(set(d.metadata['page'] for d in relevant_docs))
-                    )
+                dense_pages = sorted(set(d.metadata['page'] for d in dense_docs))
+                final_pages = sorted(set(d.metadata['page'] for d in relevant_docs))
+
+                with st.expander("🔍 Retrieval Comparison (Dense vs Reranked)"):
+                    st.write(f"**Dense only retrieved pages:** {dense_pages}")
+                    st.write(f"**Final reranked pages:** {final_pages}")
+                    
+
 
         # Update chat history
         st.session_state.chat_history.append(HumanMessage(content=question))
