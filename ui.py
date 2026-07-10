@@ -143,7 +143,7 @@ else:
                     k=20, #wide candidate pool for reranking
                     rerank_top_n=5 #final number sent to LLM
                 )
-                relevant_docs = hybrid_retriever(question)
+                relevant_docs,hypothetical_answer = hybrid_retriever(question)
 
                 # Build context from hybrid results
                 context = "\n\n".join([
@@ -188,9 +188,11 @@ Context:
                 dense_pages = sorted(set(d.metadata['page'] for d in dense_docs))
                 final_pages = sorted(set(d.metadata['page'] for d in relevant_docs))
 
-                with st.expander("🔍 Retrieval Comparison (Dense vs Reranked)"):
+                with st.expander("🔍 Retrieval Comparison (Dense vs Reranked+HyDE)"):
+                    st.write(f"**Hypothetical answer used for retrieval:**")
+                    st.info(hypothetical_answer)  # shows in a nice blue box
                     st.write(f"**Dense only retrieved pages:** {dense_pages}")
-                    st.write(f"**Final reranked pages:** {final_pages}")
+                    st.write(f"**Final reranked+HyDE pages:** {final_pages}")
                     
 
 
