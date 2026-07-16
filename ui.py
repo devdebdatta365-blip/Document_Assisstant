@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from hybrid_retriever import get_hybrid_retriever
 from dotenv import load_dotenv
+from crag import build_crag_graph
 import os
 import tempfile
 import hashlib
@@ -36,8 +37,10 @@ if "chunks" not in st.session_state:
     st.session_state.chunks = []
 if "embeddings" not in st.session_state:
     st.session_state.embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
-    )
+        model_name="all-MiniLM-L6-v2")
+if "crag_graph" not in st.session_state:
+        st.session_state.crag_graph=None
+    
 
 # Sidebar
 with st.sidebar:
@@ -81,6 +84,22 @@ with st.sidebar:
                 st.session_state.chat_history = []
 
                 os.unlink(tmp_path)
+
+                # Build hybrid retriever
+                retriever = get_hybrid_retriever(
+                    chunks=chunks,
+                    vector_store=st.session_state.vector_store,
+                    k=20,
+                    rerank_top_n=5
+                )
+
+                # Build CRAG graph
+                st.session_state.crag_graph = build_crag_graph(retriever)
+
+                st.success("✅ PDF Processed!")
+                st.info(f"📊 Total chunks: {len(chunks)}")
+                st.info(f"📄 Total pages: {len(pages)}")
+                st.rerun()
 
                 st.success("✅ PDF Processed!")
                 st.info(f"📊 Total chunks: {len(chunks)}")
@@ -127,81 +146,139 @@ else:
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
 
-                llm = ChatGroq(model="llama-3.1-8b-instant")
+#                 llm = ChatGroq(model="llama-3.1-8b-instant")
 
-                # ── Dense retriever (old way — for comparison) ──
+#                 # ── Dense retriever (old way — for comparison) ──
+#                 dense_retriever = st.session_state.vector_store.as_retriever(
+#                     search_kwargs={"k": 5}
+#                 )
+#                 dense_docs = dense_retriever.invoke(question)
+
+#                 # ── Hybrid retriever (new way — BM25 + dense) ──
+#                 hybrid_retriever = get_hybrid_retriever(
+#                     chunks=st.session_state.chunks,
+#                     vector_store=st.session_state.vector_store,
+        
+#                     k=20, #wide candidate pool for reranking
+#                     rerank_top_n=5 #final number sent to LLM
+#                 )
+#                 relevant_docs,hypothetical_answer = hybrid_retriever(question)
+
+#                 # Build context from hybrid results
+#                 context = "\n\n".join([
+#                     doc.page_content for doc in relevant_docs
+#                 ])
+
+#                 prompt = ChatPromptTemplate.from_messages([
+#                     ("system", """You are a helpful assistant.
+# Answer the question based on the context below.
+# If the answer is not in the context, say 'I don't know'.
+# Be as detailed as possible.
+
+# Context:
+# {context}"""),
+#                     MessagesPlaceholder(variable_name="chat_history"),
+#                     ("human", "{question}")
+#                 ])
+
+#                 chain = prompt | llm
+#                 answer = chain.invoke({
+#                     "context": context,
+#                     "question": question,
+#                     "chat_history": st.session_state.chat_history
+#                 })
+
+#                 st.write(answer.content)
+
+#                 # Source pages from hybrid results
+#                 seen_pages = []
+#                 source_pages = []
+#                 for doc in relevant_docs:
+#                     page = doc.metadata['page']
+#                     if page not in seen_pages:
+#                         seen_pages.append(page)
+#                         source_pages.append(page)
+
+#                 with st.expander("📚 Sources"):
+#                     for page in source_pages:
+#                         st.write(f"📄 Page {page}")
+
+#                 # ── Retrieval comparison log ──
+#                 dense_pages = sorted(set(d.metadata['page'] for d in dense_docs))
+#                 final_pages = sorted(set(d.metadata['page'] for d in relevant_docs))
+
+#                 with st.expander("🔍 Retrieval Comparison (Dense vs Reranked+HyDE)"):
+#                     st.write(f"**Hypothetical answer used for retrieval:**")
+#                     st.info(hypothetical_answer)  # shows in a nice blue box
+#                     st.write(f"**Dense only retrieved pages:** {dense_pages}")
+#                     st.write(f"**Final reranked+HyDE pages:** {final_pages}")
+                    
+        # ── Dense retriever for comparison log only ──
                 dense_retriever = st.session_state.vector_store.as_retriever(
                     search_kwargs={"k": 5}
                 )
                 dense_docs = dense_retriever.invoke(question)
 
-                # ── Hybrid retriever (new way — BM25 + dense) ──
-                hybrid_retriever = get_hybrid_retriever(
-                    chunks=st.session_state.chunks,
-                    vector_store=st.session_state.vector_store,
-        
-                    k=20, #wide candidate pool for reranking
-                    rerank_top_n=5 #final number sent to LLM
-                )
-                relevant_docs,hypothetical_answer = hybrid_retriever(question)
-
-                # Build context from hybrid results
-                context = "\n\n".join([
-                    doc.page_content for doc in relevant_docs
-                ])
-
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", """You are a helpful assistant.
-Answer the question based on the context below.
-If the answer is not in the context, say 'I don't know'.
-Be as detailed as possible.
-
-Context:
-{context}"""),
-                    MessagesPlaceholder(variable_name="chat_history"),
-                    ("human", "{question}")
-                ])
-
-                chain = prompt | llm
-                answer = chain.invoke({
-                    "context": context,
+                # ── Run CRAG graph ──
+                result = st.session_state.crag_graph.invoke({
                     "question": question,
-                    "chat_history": st.session_state.chat_history
+                    "documents": [],
+                    "generation": "",
+                    "web_search": False,
+                    "steps": []
                 })
 
-                st.write(answer.content)
+                answer = result["generation"]
+                relevant_docs = result["documents"]
+                steps_taken = result["steps"]
 
-                # Source pages from hybrid results
+                st.write(answer)
+
+                # Source pages
                 seen_pages = []
                 source_pages = []
                 for doc in relevant_docs:
-                    page = doc.metadata['page']
+                    page = doc.metadata.get('page', 'web')
                     if page not in seen_pages:
                         seen_pages.append(page)
                         source_pages.append(page)
 
                 with st.expander("📚 Sources"):
                     for page in source_pages:
-                        st.write(f"📄 Page {page}")
+                        if page == "web":
+                            st.write("🌐 Web search result")
+                        else:
+                            st.write(f"📄 Page {page}")
 
-                # ── Retrieval comparison log ──
-                dense_pages = sorted(set(d.metadata['page'] for d in dense_docs))
-                final_pages = sorted(set(d.metadata['page'] for d in relevant_docs))
-
-                with st.expander("🔍 Retrieval Comparison (Dense vs Reranked+HyDE)"):
-                    st.write(f"**Hypothetical answer used for retrieval:**")
-                    st.info(hypothetical_answer)  # shows in a nice blue box
-                    st.write(f"**Dense only retrieved pages:** {dense_pages}")
-                    st.write(f"**Final reranked+HyDE pages:** {final_pages}")
-                    
-
+                # ── CRAG pipeline log ──
+                with st.expander("🔍 CRAG Pipeline Log"):
+                    st.write(f"**Steps taken:** {' → '.join(steps_taken)}")
+                    if "web_search" in steps_taken:
+                        st.warning(
+                            "⚠️ Retrieved docs were irrelevant — "
+                            "fell back to web search"
+                        )
+                    else:
+                        st.success(
+                            "✅ Document chunks were relevant — "
+                            "answered from PDF"
+                        )
+                    dense_pages = sorted(set(
+                        d.metadata.get('page', 'web') for d in dense_docs
+                    ))
+                    final_pages = sorted(set(
+                        str(d.metadata.get('page', 'web'))
+                        for d in relevant_docs
+                    ))
+                    st.write(f"**Dense only pages:** {dense_pages}")
+                    st.write(f"**Final pages used:** {final_pages}")
 
         # Update chat history
         st.session_state.chat_history.append(HumanMessage(content=question))
-        st.session_state.chat_history.append(AIMessage(content=answer.content))
+        st.session_state.chat_history.append(AIMessage(content=answer))
 
         st.session_state.messages.append({
             "role": "assistant",
-            "content": answer.content,
+            "content": answer,
             "sources": source_pages
         })
