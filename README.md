@@ -20,6 +20,8 @@ memory, source citations, and a three-stage retrieval pipeline.
 - 💾 Persistent vector store (ChromaDB) — embeddings computed once, reused on restart
 - 🏠 Local embeddings via HuggingFace (all-MiniLM-L6-v2) — zero embedding API cost
 - 📊 Retrieval comparison view (Dense vs Final Reranked+HyDE)
+- 🔄 CRAG (Corrective RAG) — grades retrieved chunks for relevance, 
+  falls back to web search when document context is insufficient
 
 ---
 
@@ -32,6 +34,7 @@ memory, source citations, and a three-stage retrieval pipeline.
 | Vector Store | ChromaDB |
 | Keyword Search | BM25 (rank-bm25) |
 | Reranker | sentence-transformers (ms-marco-TinyBERT-L-2-v2) |
+| Web Search Fallback | Tavily API |
 | UI | Streamlit |
 
 ---
@@ -135,6 +138,21 @@ Query
 > terms ("hallucination", "training data"), retrieved page [0] that 
 > dense missed — enabling a more complete final answer.
 
+**CRAG — answered from PDF:**
+
+<img width="829" height="307" alt="image" src="https://github.com/user-attachments/assets/ee446e38-6e5b-4283-90fe-d63e6ca46b80" />
+
+> Question: *"Can you give some more information on RAG?"*  
+> All retrieved chunks passed relevance grading — no web search needed.  
+> Pipeline: `retrieve → grade_documents → generate`
+
+<img width="845" height="286" alt="image" src="https://github.com/user-attachments/assets/88b4ecaa-7d66-439c-95d9-adadf49b9a38" />
+
+> Question: *"What are the chunking strategies for RAG Systems?"*  
+> One retrieved chunks passed relevance grading — fell back to Tavily  
+> web search automatically.  
+> Pipeline: `retrieve → grade_documents → web_search → generate`
+
 ---
 
 ## 🗺️ Roadmap
@@ -142,7 +160,7 @@ Query
 - [x] Hybrid Search (BM25 + Dense + RRF)
 - [x] HyDE (Hypothetical Document Embeddings)
 - [x] Cross-encoder Reranking (two-stage retrieval)
-- [ ] CRAG (Corrective RAG with relevance grading)
+- [x] CRAG (Corrective RAG with relevance grading)
 - [ ] Self-RAG (self-critique loop)
 - [ ] Text2SQL module
 - [ ] Semantic caching
